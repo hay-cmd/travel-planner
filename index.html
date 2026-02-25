@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日本旅遊規劃- Japan Trip Planner</title>
+    
+    <!-- 字體 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <!-- Chart.js for Pie Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- SortableJS for Drag & Drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        base: {
+                            DEFAULT: '#FAF9F6',
+                            secondary: '#F5F5F5',
+                        },
+                        primary: {
+                            DEFAULT: '#8B7355',
+                            light: '#A68968',
+                            dark: '#6D5C44',
+                        },
+                        accent: {
+                            DEFAULT: '#D3D3D3',
+                            warm: '#E8E4C6',
+                            pink: '#FFE4E1',
+                        },
+                        category: {
+                            food: '#FF8C42',
+                            sightseeing: '#4A90E2',
+                            transport: '#50C878',
+                            hotel: '#9B59B6',
+                            shopping: '#FF69B4',
+                            other: '#95A5A6',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #FAF9F6;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+        
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        .nav-item.active {
+            background-color: #8B7355;
+            color: white;
+        }
+        
+        .modal {
+            display: none;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .activity-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .activity-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 拖拽樣式 */
+        .sortable-ghost {
+            opacity: 0.4;
+            background: #f0f9ff !important;
+        }
+        
+        .sortable-chosen {
+            background-color: #fef3c7 !important;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .sortable-drag {
+            opacity: 1 !important;
+        }
+        
+        .drag-handle {
+            cursor: grab;
+        }
+        
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #8B7355;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        /* 下拉選單動畫 */
+        .dropdown-menu {
+            transform-origin: top right;
+            animation: dropdownIn 0.15s ease-out;
+        }
+        
+        @keyframes dropdownIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex h-screen overflow-hidden">
+        <!-- 側邊欄 (桌面版) -->
+        <aside id="sidebar" class="hidden lg:flex w-64 h-screen bg-white border-r border-gray-200 flex-col flex-shrink-0">
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+                        <i data-lucide="plane" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-semibold text-gray-800">日本旅遊</h1>
+                        <p class="text-xs text-gray-500">Trip Planner</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 導航 -->
+            <nav class="flex-1 p-4 space-y-2">
+                <button onclick="showPage('dashboard')" class="nav-item active w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-left" data-page="dashboard">
+                    <i data-lucide="home" class="w-5 h-5"></i>
+                    <span class="font-medium">首頁</span>
+                </button>
+                <button onclick="showPage('trip')" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-600 hover:bg-gray-50 text-left" data-page="trip">
+                    <i data-lucide="calendar" class="w-5 h-5"></i>
+                    <span class="font-medium">行程規劃</span>
+                </button>
+                <button onclick="showPage('budget')" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-600 hover:bg-gray-50 text-left" data-page="budget">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                    <span class="font-medium">預算追蹤</span>
+                </button>
+                <button onclick="showPage('toolbox')" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-600 hover:bg-gray-50 text-left" data-page="toolbox">
+                    <i data-lucide="wrench" class="w-5 h-5"></i>
+                    <span class="font-medium">旅行工具</span>
+                </button>
+            </nav>
+            
+            <!-- 底部提示 -->
+            <div class="p-4">
+                <div class="bg-gradient-to-br from-accent-pink to-accent-warm rounded-2xl p-4">
+                    <p class="text-sm font-medium text-gray-700 mb-1">✨ 開始規劃您的旅程</p>
+                    <p class="text-xs text-gray-600">探索日本，創造美好回憶</p>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 主內容區 -->
+        <main class="flex-1 overflow-y-auto">
+            <!-- 移動版頭部 -->
+            <header class="lg:hidden glass border-b border-gray-200 sticky top-0 z-40">
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                            <i data-lucide="plane" class="w-4 h-4 text-white"></i>
+                        </div>
+                        <span class="font-semibold text-gray-800">日本旅遊</span>
+                    </div>
+                    <button onclick="toggleMobileMenu()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- 移動版選單 -->
+            <div id="mobileMenu" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/20 backdrop-blur-sm" onclick="toggleMobileMenu()"></div>
+                <div class="absolute top-0 right-0 bottom-0 w-64 bg-white shadow-2xl p-6 transform transition-transform">
+                    <button onclick="toggleMobileMenu()" class="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                    <nav class="space-y-2 mt-16">
+                        <button onclick="showPage('dashboard'); toggleMobileMenu();" class="mobile-nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left bg-primary text-white" data-page="dashboard">
+                            <i data-lucide="home" class="w-5 h-5"></i>
+                            <span class="font-medium">首頁</span>
+                        </button>
+                        <button onclick="showPage('trip'); toggleMobileMenu();" class="mobile-nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-gray-50" data-page="trip">
+                            <i data-lucide="calendar" class="w-5 h-5"></i>
+                            <span class="font-medium">行程規劃</span>
+                        </button>
+                        <button onclick="showPage('budget'); toggleMobileMenu();" class="mobile-nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-gray-50" data-page="budget">
+                            <i data-lucide="wallet" class="w-5 h-5"></i>
+                            <span class="font-medium">預算追蹤</span>
+                        </button>
+                        <button onclick="showPage('toolbox'); toggleMobileMenu();" class="mobile-nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-gray-50" data-page="toolbox">
+                            <i data-lucide="wrench" class="w-5 h-5"></i>
+                            <span class="font-medium">旅行工具</span>
+                        </button>
+                    </nav>
+                </div>
+            </div>
+            
+            <div class="p-4 lg:p-8">
+                <!-- Dashboard 頁面 -->
+                <div id="page-dashboard" class="page active max-w-7xl mx-auto">
+                    <div class="mb-8">
+                        <h1 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-2">我的旅程</h1>
+                        <p class="text-gray-500">開始規劃你的下一趟日本旅行</p>
+                    </div>
+                    
+                    <div id="tripGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 旅程卡片將由 JavaScript 動態生成 -->
+                    </div>
+                </div>
+                
+                <!-- Trip 頁面 -->
+                <div id="page-trip" class="page max-w-7xl mx-auto">
+                    <button onclick="showPage('dashboard')" class="flex items-center space-x-2 text-gray-600 hover:text-gray-800 mb-6 transition-colors">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                        <span>返回首頁</span>
+                    </button>
+                    
+                    <div id="tripDetailHeader" class="mb-8">
+                        <!-- 由 JavaScript 填充 -->
+                    </div>
+                    
+                    <div id="tripNotSelected" class="text-center py-20 text-gray-500">
+                        <i data-lucide="calendar" class="w-16 h-16 mx-auto mb-4 text-gray-400"></i>
+                        <p>請先從首頁選擇一個旅程</p>
+                    </div>
+                    
+                    <div id="tripContent" class="hidden grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <!-- 天數選擇器 -->
+                        <div class="lg:col-span-1">
+                            <div id="daySelector" class="space-y-3">
+                                <!-- 由 JavaScript 填充 -->
+                            </div>
+                        </div>
+                        
+                        <!-- 活動時間軸 -->
+                        <div class="lg:col-span-3">
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <div class="flex items-center justify-between mb-6">
+                                    <h2 id="currentDayTitle" class="text-xl font-semibold text-gray-800">第 1 天行程</h2>
+                                    <button onclick="openAddActivityModal()" class="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors">
+                                        <i data-lucide="plus" class="w-5 h-5"></i>
+                                        <span>新增活動</span>
+                                    </button>
+                                </div>
+                                
+                                <!-- 天氣資訊 -->
+                                <div id="weatherInfo" class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-6 flex items-center justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                                            <i data-lucide="sun" class="w-6 h-6 text-yellow-500"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm text-gray-600">今日天氣</div>
+                                            <div id="weatherCondition" class="font-semibold text-gray-800">晴天</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div id="weatherMaxTemp" class="text-2xl font-bold text-gray-800">20°</div>
+                                        <div id="weatherMinTemp" class="text-sm text-gray-600">最低 10°</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 拖拽提示 -->
+                                <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-2 text-sm text-amber-700">
+                                    <i data-lucide="info" class="w-4 h-4"></i>
+                                    <span>提示：拖動左側的 ⋮⋮ 圖標可調整活動順序</span>
+                                </div>
+                                
+                                <!-- 活動列表 -->
+                                <div id="activityList" class="space-y-4">
+                                    <!-- 由 JavaScript 填充 -->
+                                </div>
+                                
+                                <div id="noActivities" class="text-center py-20 text-gray-500">
+                                    <p>尚未新增任何活動</p>
+                                    <p class="text-sm mt-2">點擊上方「新增活動」開始規劃</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Budget 頁面 -->
+                <div id="page-budget" class="page max-w-7xl mx-auto">
+                    <div class="mb-8">
+                        <h1 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-2">預算追蹤</h1>
+                        <p class="text-gray-500">掌握您的旅行支出</p>
+                    </div>
+                    
+                    <!-- 旅程選擇 -->
+                    <div class="mb-6">
+                        <select id="budgetTripSelect" onchange="updateBudgetDisplay()" class="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white">
+                            <!-- 由 JavaScript 填充 -->
+                        </select>
+                    </div>
+                    
+                    <div id="budgetNoTrips" class="text-center py-20 text-gray-500">
+                        <i data-lucide="wallet" class="w-16 h-16 mx-auto mb-4 text-gray-400"></i>
+                        <p>尚未建立任何旅程</p>
+                        <p class="text-sm mt-2">請先建立旅程後再查看預算</p>
+                    </div>
+                    
+                    <div id="budgetContent" class="hidden">
+                        <!-- 預算總覽卡片 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <div class="flex items-center justify-between mb-4">
+                                    <span class="text-gray-500">總預算</span>
+                                    <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="wallet" class="w-5 h-5 text-blue-600"></i>
+                                    </div>
+                                </div>
+                                <div id="totalBudget" class="text-3xl font-bold text-gray-800">¥200,000</div>
+                            </div>
+                            
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <div class="flex items-center justify-between mb-4">
+                                    <span class="text-gray-500">已花費</span>
+                                    <div class="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="trending-up" class="w-5 h-5 text-orange-600"></i>
+                                    </div>
+                                </div>
+                                <div id="totalSpent" class="text-3xl font-bold text-gray-800">¥0</div>
+                                <div id="spentPercentage" class="text-sm text-gray-500 mt-1">0% 已使用</div>
+                            </div>
+                            
+                            <div id="remainingCard" class="bg-white rounded-2xl p-6 card-shadow">
+                                <div class="flex items-center justify-between mb-4">
+                                    <span class="text-gray-500">剩餘預算</span>
+                                    <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="trending-down" class="w-5 h-5 text-green-600"></i>
+                                    </div>
+                                </div>
+                                <div id="remainingBudget" class="text-3xl font-bold text-gray-800">¥200,000</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 圓餅圖與類別列表 -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">支出分佈</h3>
+                                <div class="h-[300px] flex items-center justify-center">
+                                    <canvas id="budgetPieChart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">支出類別</h3>
+                                <div id="categoryList" class="space-y-4">
+                                    <!-- 由 JavaScript 填充 -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 預算設定 -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow mt-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">預算設定</h3>
+                            <div class="flex items-center space-x-4">
+                                <div class="flex-1">
+                                    <label class="block text-sm text-gray-600 mb-2">總預算 (¥)</label>
+                                    <input type="number" id="budgetInput" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" min="0" step="10000" value="200000">
+                                </div>
+                                <button onclick="saveBudget()" class="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors mt-6">儲存</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Toolbox 頁面 -->
+                <div id="page-toolbox" class="page max-w-7xl mx-auto">
+                    <div class="mb-8">
+                        <h1 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-2">旅行工具箱</h1>
+                        <p class="text-gray-500">實用工具，讓旅程更順暢</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- 出發前檢查清單 -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                                    <i data-lucide="check-circle-2" class="w-5 h-5 text-green-600"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-800">出發前檢查清單</h3>
+                            </div>
+                            
+                            <!-- 進度條 -->
+                            <div class="mb-4">
+                                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                    <span>完成進度</span>
+                                    <span id="checklistProgress">0/10</span>
+                                </div>
+                                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div id="checklistProgressBar" class="h-full bg-green-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- 清單項目 -->
+                            <div id="checklistItems" class="space-y-2 max-h-[300px] overflow-y-auto scrollbar-hide mb-4">
+                                <!-- 由 JavaScript 填充 -->
+                            </div>
+                            
+                            <!-- 新增項目 -->
+                            <div class="flex space-x-2">
+                                <input type="text" id="newChecklistItem" placeholder="新增項目..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onkeypress="if(event.key === 'Enter') addChecklistItem()">
+                                <button onclick="addChecklistItem()" class="px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                                    <i data-lucide="plus" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 貨幣轉換器 -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                    <i data-lucide="arrow-left-right" class="w-5 h-5 text-blue-600"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-800">貨幣轉換器</h3>
+                            </div>
+                            
+                            <!-- 匯率設定 -->
+                            <div class="mb-4 p-3 bg-gray-50 rounded-xl">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">當前匯率</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm">1 JPY =</span>
+                                        <input type="number" id="exchangeRate" value="0.051" step="0.001" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm" onchange="convertCurrency()">
+                                        <span class="text-sm">HKD</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 計算機輸入 -->
+                            <div class="mb-4">
+                                <label class="block text-sm text-gray-600 mb-2">
+                                    <i data-lucide="calculator" class="w-4 h-4 inline mr-1"></i>
+                                    計算機（支援算式如：500+200*3）
+                                </label>
+                                <div class="flex space-x-2">
+                                    <input type="text" id="currencyExpression" placeholder="輸入算式..." class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" onkeypress="if(event.key === 'Enter') calculateCurrencyExpression()">
+                                    <button onclick="calculateCurrencyExpression()" class="px-4 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors">=</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 貨幣輸入 -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-2">日圓 (JPY)</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">¥</span>
+                                        <input type="number" id="jpyAmount" placeholder="0" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg" oninput="convertJpyToHkd()">
+                                    </div>
+                                </div>
+                                
+                                <div class="flex justify-center">
+                                    <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                        <i data-lucide="arrow-left-right" class="w-5 h-5 text-gray-500"></i>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-2">港幣 (HKD)</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input type="number" id="hkdAmount" placeholder="0" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg" oninput="convertHkdToJpy()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 語言翻譯器 -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                    <i data-lucide="languages" class="w-5 h-5 text-purple-600"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-800">語言翻譯器</h3>
+                            </div>
+                            
+                            <p class="text-sm text-gray-500 mb-4">日文 → 繁體中文</p>
+                            
+                            <!-- 相片/相機區域 -->
+                            <div class="mb-4">
+                                <div id="cameraPreview" class="hidden relative">
+                                    <video id="cameraVideo" autoplay playsinline class="w-full h-48 object-cover rounded-xl bg-black"></video>
+                                    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-2">
+                                        <button onclick="captureImage()" class="px-4 py-2 bg-white rounded-full shadow-lg text-sm">拍照</button>
+                                        <button onclick="stopCamera()" class="px-4 py-2 bg-red-500 text-white rounded-full shadow-lg text-sm">取消</button>
+                                    </div>
+                                </div>
+                                
+                                <div id="imagePreview" class="hidden relative">
+                                    <img id="uploadedImage" src="" alt="上傳的圖片" class="w-full h-48 object-cover rounded-xl">
+                                    <button onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md">
+                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                
+                                <div id="cameraButtons" class="flex space-x-2">
+                                    <button onclick="startCamera()" class="flex-1 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center hover:border-primary transition-colors">
+                                        <i data-lucide="camera" class="w-6 h-6 text-gray-400 mb-1"></i>
+                                        <span class="text-sm text-gray-500">開啟相機</span>
+                                    </button>
+                                    <label class="flex-1 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center hover:border-primary transition-colors cursor-pointer">
+                                        <i data-lucide="image" class="w-6 h-6 text-gray-400 mb-1"></i>
+                                        <span class="text-sm text-gray-500">上傳相片</span>
+                                        <input type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- 文字輸入 -->
+                            <div class="mb-4">
+                                <textarea id="sourceText" placeholder="輸入日文文字或使用相機/相片識別..." rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"></textarea>
+                            </div>
+                            
+                            <!-- 翻譯按鈕 -->
+                            <button onclick="translateText()" class="w-full px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors mb-4">翻譯</button>
+                            
+                            <!-- 翻譯結果 -->
+                            <div id="translationResult" class="hidden p-4 bg-purple-50 rounded-xl">
+                                <div class="text-sm text-purple-600 mb-1">翻譯結果</div>
+                                <div id="translatedText" class="text-gray-800"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 折扣計算機 -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center">
+                                    <i data-lucide="percent" class="w-5 h-5 text-pink-600"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-800">折扣計算機</h3>
+                            </div>
+                            
+                            <!-- 計算機輸入 -->
+                            <div class="mb-4">
+                                <label class="block text-sm text-gray-600 mb-2">
+                                    <i data-lucide="calculator" class="w-4 h-4 inline mr-1"></i>
+                                    計算機（支援算式）
+                                </label>
+                                <div class="flex space-x-2">
+                                    <input type="text" id="discountExpression" placeholder="輸入算式如：1000+500..." class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" onkeypress="if(event.key === 'Enter') calculateDiscountExpression()">
+                                    <button onclick="calculateDiscountExpression()" class="px-4 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors">=</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 原價輸入 -->
+                            <div class="mb-4">
+                                <label class="block text-sm text-gray-600 mb-2">原價 (¥)</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">¥</span>
+                                    <input type="number" id="originalPrice" placeholder="0" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg" oninput="calculateDiscount()">
+                                </div>
+                            </div>
+                            
+                            <!-- 折扣輸入 -->
+                            <div class="mb-4">
+                                <label class="block text-sm text-gray-600 mb-2">折扣（例如：70 = 7折 = 30% off）</label>
+                                <div class="flex items-center space-x-4">
+                                    <input type="range" id="discountSlider" min="0" max="100" value="70" oninput="updateDiscountInput(); calculateDiscount();" class="flex-1">
+                                    <div class="flex items-center space-x-1">
+                                        <input type="number" id="discountInput" value="70" min="0" max="100" class="w-16 px-2 py-2 border border-gray-300 rounded-lg text-center" oninput="updateDiscountSlider(); calculateDiscount();">
+                                        <span class="text-gray-500">%</span>
+                                    </div>
+                                </div>
+                                <div id="discountLabel" class="text-sm text-gray-500 mt-1">= 70折 = 30% off</div>
+                            </div>
+                            
+                            <!-- 結果顯示 -->
+                            <div class="p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl">
+                                <div class="text-sm text-gray-600 mb-1">折後價格</div>
+                                <div id="finalPrice" class="text-3xl font-bold text-gray-800">¥0</div>
+                                <div id="savedAmount" class="text-sm text-green-600 mt-1">節省 ¥0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- 新增旅程彈窗 -->
+    <div id="createTripModal" class="modal fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeModal('createTripModal')"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800">新增旅程</h2>
+                <button onclick="closeModal('createTripModal')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="createTripForm" class="p-6 space-y-5" onsubmit="createTrip(event)">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">旅程標題 *</label>
+                    <input type="text" id="tripTitle" placeholder="例：2026 京都春季之旅" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">開始日期 *</label>
+                        <input type="date" id="tripStartDate" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required onchange="updateTripDays()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">結束日期 *</label>
+                        <input type="date" id="tripEndDate" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required onchange="updateTripDays()">
+                    </div>
+                </div>
+                
+                <div id="tripDaysDisplay" class="hidden flex items-center space-x-2 text-sm text-gray-600 bg-accent-warm/30 px-4 py-2 rounded-lg">
+                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                    <span id="tripDaysCount">共 0 天</span>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">封面圖片</label>
+                    <div id="coverPreview" class="hidden relative mb-2">
+                        <img id="coverImage" src="" alt="封面預覽" class="w-full h-48 object-cover rounded-xl">
+                        <button type="button" onclick="clearCoverImage()" class="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-100">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <label id="coverUploadBtn" class="block w-full h-32 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary transition-colors cursor-pointer">
+                        <div class="h-full flex flex-col items-center justify-center text-gray-500">
+                            <i data-lucide="upload" class="w-8 h-8 mb-2"></i>
+                            <span class="text-sm">點擊上傳圖片</span>
+                        </div>
+                        <input type="file" accept="image/*" class="hidden" onchange="handleCoverUpload(event)">
+                    </label>
+                </div>
+                
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" onclick="closeModal('createTripModal')" class="flex-1 px-4 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+                    <button type="submit" class="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors">建立旅程</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ✅ 編輯旅程彈窗 (新增) -->
+    <div id="editTripModal" class="modal fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeModal('editTripModal')"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800">編輯旅程</h2>
+                <button onclick="closeModal('editTripModal')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="editTripForm" class="p-6 space-y-5" onsubmit="saveEditTrip(event)">
+                <input type="hidden" id="editTripId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">旅程標題 *</label>
+                    <input type="text" id="editTripTitle" placeholder="例：2026 京都春季之旅" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">開始日期 *</label>
+                        <input type="date" id="editTripStartDate" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required onchange="updateEditTripDays()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">結束日期 *</label>
+                        <input type="date" id="editTripEndDate" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required onchange="updateEditTripDays()">
+                    </div>
+                </div>
+                
+                <div id="editTripDaysDisplay" class="hidden flex items-center space-x-2 text-sm text-gray-600 bg-accent-warm/30 px-4 py-2 rounded-lg">
+                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                    <span id="editTripDaysCount">共 0 天</span>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">封面圖片</label>
+                    <div id="editCoverPreview" class="hidden relative mb-2">
+                        <img id="editCoverImage" src="" alt="封面預覽" class="w-full h-48 object-cover rounded-xl">
+                        <button type="button" onclick="clearEditCoverImage()" class="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-100">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <label id="editCoverUploadBtn" class="block w-full h-32 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary transition-colors cursor-pointer">
+                        <div class="h-full flex flex-col items-center justify-center text-gray-500">
+                            <i data-lucide="upload" class="w-8 h-8 mb-2"></i>
+                            <span class="text-sm">點擊上傳圖片</span>
+                        </div>
+                        <input type="file" accept="image/*" class="hidden" onchange="handleEditCoverUpload(event)">
+                    </label>
+                </div>
+                
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" onclick="closeModal('editTripModal')" class="flex-1 px-4 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+                    <button type="submit" class="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors">儲存變更</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 新增活動彈窗 -->
+    <div id="addActivityModal" class="modal fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeModal('addActivityModal')"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800">新增活動</h2>
+                <button onclick="closeModal('addActivityModal')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="addActivityForm" class="p-6 space-y-5" onsubmit="addActivity(event)">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">活動類型 *</label>
+                    <div class="grid grid-cols-5 gap-2">
+                        <button type="button" onclick="selectActivityType('food')" class="activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="food">
+                            <i data-lucide="utensils" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">餐廳</div>
+                        </button>
+                        <button type="button" onclick="selectActivityType('sightseeing')" class="activity-type-btn p-3 rounded-xl border-2 transition-all bg-category-sightseeing border-transparent text-white" data-type="sightseeing">
+                            <i data-lucide="camera" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">景點</div>
+                        </button>
+                        <button type="button" onclick="selectActivityType('transport')" class="activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="transport">
+                            <i data-lucide="train-front" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">交通</div>
+                        </button>
+                        <button type="button" onclick="selectActivityType('hotel')" class="activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="hotel">
+                            <i data-lucide="bed" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">住宿</div>
+                        </button>
+                        <button type="button" onclick="selectActivityType('shopping')" class="activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="shopping">
+                            <i data-lucide="shopping-bag" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">購物</div>
+                        </button>
+                    </div>
+                    <input type="hidden" id="activityType" value="sightseeing">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">時間</label>
+                    <input type="time" id="activityTime" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">地點名稱 *</label>
+                    <input type="text" id="activityLocation" placeholder="例：淺草寺" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">備註</label>
+                    <textarea id="activityNotes" placeholder="例：記得穿和服拍照" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">預計花費 (¥)</label>
+                    <input type="number" id="activityCost" placeholder="0" min="0" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" onclick="closeModal('addActivityModal')" class="flex-1 px-4 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+                    <button type="submit" class="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors">新增活動</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ✅ 編輯活動彈窗 (新增) -->
+    <div id="editActivityModal" class="modal fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeModal('editActivityModal')"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800">編輯活動</h2>
+                <button onclick="closeModal('editActivityModal')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="editActivityForm" class="p-6 space-y-5" onsubmit="saveEditActivity(event)">
+                <input type="hidden" id="editActivityId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">活動類型 *</label>
+                    <div class="grid grid-cols-5 gap-2">
+                        <button type="button" onclick="selectEditActivityType('food')" class="edit-activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="food">
+                            <i data-lucide="utensils" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">餐廳</div>
+                        </button>
+                        <button type="button" onclick="selectEditActivityType('sightseeing')" class="edit-activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="sightseeing">
+                            <i data-lucide="camera" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">景點</div>
+                        </button>
+                        <button type="button" onclick="selectEditActivityType('transport')" class="edit-activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="transport">
+                            <i data-lucide="train-front" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">交通</div>
+                        </button>
+                        <button type="button" onclick="selectEditActivityType('hotel')" class="edit-activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="hotel">
+                            <i data-lucide="bed" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">住宿</div>
+                        </button>
+                        <button type="button" onclick="selectEditActivityType('shopping')" class="edit-activity-type-btn p-3 rounded-xl border-2 transition-all border-gray-200 hover:border-gray-300 text-gray-600" data-type="shopping">
+                            <i data-lucide="shopping-bag" class="w-6 h-6 mx-auto mb-1"></i>
+                            <div class="text-xs">購物</div>
+                        </button>
+                    </div>
+                    <input type="hidden" id="editActivityType" value="sightseeing">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">時間</label>
+                    <input type="time" id="editActivityTime" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">地點名稱 *</label>
+                    <input type="text" id="editActivityLocation" placeholder="例：淺草寺" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">備註</label>
+                    <textarea id="editActivityNotes" placeholder="例：記得穿和服拍照" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">預計花費 (¥)</label>
+                    <input type="number" id="editActivityCost" placeholder="0" min="0" 
